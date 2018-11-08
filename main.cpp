@@ -4,12 +4,15 @@
 
 #include <nlopt.hpp>
 
+int count = 0;
+
 typedef struct {
 	double a, b;
 } my_constraint_data;
 
 double myfunc(const std::vector<double> &x, std::vector<double> &grad, void *my_func_data) // x[0]:x1 x[1]:x2
 {
+	count++;
 	if (!grad.empty()) {
 		grad[0] = 0.0;
 		grad[1] = 0.5 / sqrt(x[1]);
@@ -29,7 +32,8 @@ double myconstraint(const std::vector<double> &x, std::vector<double> &grad, voi
 }
 
 int main(int argc, char *argv[]) {
-	nlopt::opt opt(nlopt::LD_MMA, 2); // algorithm and dimensionality
+	//nlopt::opt opt(nlopt::LD_MMA, 2); // algorithm and dimensionality
+	nlopt::opt opt(nlopt::LN_COBYLA, 2); // algorithm and dimensionality
 	std::vector<double> lb(2);
 	lb[0] = -HUGE_VAL; lb[1] = 0;
 	opt.set_lower_bounds(lb);
@@ -44,10 +48,12 @@ int main(int argc, char *argv[]) {
 
 	try {
 		nlopt::result result = opt.optimize(x, minf); // perform optimization
+		std::cout << "found minimun after " << count << " evaluations" << std::endl;
 		std::cout << "found minimum at f(" << x[0] << "," << x[1] << ") = "
 			<< std::setprecision(10) << minf << std::endl;
 	}
 	catch (std::exception &e) {
 		std::cout << "nlopt failed: " << e.what() << std::endl;
 	}
+	system("pause");
 }
