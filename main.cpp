@@ -10,6 +10,35 @@ typedef struct {
 	double a, b;
 } my_constraint_data;
 
+struct Vector3 {
+	double x, y, z;
+	Vector3(double a, double b, double c) { x = a; y = b; z = c; }
+
+	Vector3 operator*(const double f) const
+	{
+		return Vector3(this->x * f, this->y * f, this->z * f);
+	}
+
+	Vector3 operator+(const Vector3 v) const
+	{
+		return Vector3(x + v.x, y + v.y, z + v.z);
+	}
+
+	Vector3 operator-(const Vector3 v) const
+	{
+		return Vector3(x - v.x, y - v.y, z - v.z);
+	}
+
+	double length()
+	{
+		return sqrt((x * x) + (y * y) + (z * z));
+	}
+};
+
+typedef struct {
+	std::vector<Vector3> v;
+} v_data;
+
 double myfunc(const std::vector<double> &x, std::vector<double> &grad, void *my_func_data) // x[0]:x1 x[1]:x2
 {
 	count++;
@@ -31,7 +60,32 @@ double myconstraint(const std::vector<double> &x, std::vector<double> &grad, voi
 	return ((a*x[0] + b) * (a*x[0] + b) * (a*x[0] + b) - x[1]);
 }
 
+double opti_func(const std::vector<double> &x, std::vector<double> &grad, void *data) 
+{
+	count++;
+
+	v_data *d = reinterpret_cast<v_data*>(data);
+	std::vector<Vector3> v = d->v;
+
+	if (!grad.empty()) {
+		//
+	}
+
+	double sum = 0;
+	std::vector<Vector3> p;
+	for (int i = 0; i < v.size(); i++) {
+		p.push_back(v[i] * x[0]);
+	}
+	
+	for (int i = 0; i < p.size(); i++) {
+		//p.push_back(v[i] * x[0]);
+	}
+
+	return p[0].length() + p[1].length() + p[2].length() + p[3].length() + p[4].length();
+}
+
 int main(int argc, char *argv[]) {
+	/*
 	//nlopt::opt opt(nlopt::LD_MMA, 2); // algorithm and dimensionality
 	nlopt::opt opt(nlopt::LN_COBYLA, 2); // algorithm and dimensionality
 	std::vector<double> lb(2);
@@ -55,5 +109,34 @@ int main(int argc, char *argv[]) {
 	catch (std::exception &e) {
 		std::cout << "nlopt failed: " << e.what() << std::endl;
 	}
+	*/
+	nlopt::opt opt(nlopt::LN_COBYLA, 5);
+	std::vector<double> lb = { 10, 10, 10, 10, 10 };
+	std::vector<double> ub = { 30, 30, 30, 30, 30 };
+	opt.set_lower_bounds(lb);
+	opt.set_upper_bounds(ub);
+
+	v_data data;
+	data.v.push_back(Vector3(1.0, 1.0, 1.0));
+	data.v.push_back(Vector3(1.0, 0.8, -1.0));
+	data.v.push_back(Vector3(-1.0, 1.0, 0.8));
+	data.v.push_back(Vector3(-1.0, -0.5, 1.0));
+	data.v.push_back(Vector3(1.0, -1.0, -0.5));
+
+	opt.set_min_objective(opti_func, &data);
+	opt.set_xtol_rel(1e-4);
+	std::vector<double> guess = { 20, 20, 20, 20, 20 };
+	double min;
+
+	try {
+		nlopt::result result = opt.optimize(guess, min); // perform optimization
+		std::cout << "found minimun after " << count << " evaluations" << std::endl;
+		std::cout << "found minimum at f(" << guess[0] << "," << guess[1] << "," << guess[2] << "," << guess[3] << "," << guess[4] << ") = "
+			<< std::setprecision(10) << min << std::endl;
+	}
+	catch (std::exception &e) {
+		std::cout << "nlopt failed: " << e.what() << std::endl;
+	}
+
 	system("pause");
 }
