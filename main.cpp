@@ -3,6 +3,8 @@
 #include <vector>
 
 #include <nlopt.hpp>
+#include "FileManager.h"
+#include "Vector3.h"
 
 int count = 0;
 
@@ -10,30 +12,6 @@ typedef struct {
 	double a, b;
 } my_constraint_data;
 
-struct Vector3 {
-	double x, y, z;
-	Vector3(double a, double b, double c) { x = a; y = b; z = c; }
-
-	Vector3 operator*(const double f) const
-	{
-		return Vector3(this->x * f, this->y * f, this->z * f);
-	}
-
-	Vector3 operator+(const Vector3 v) const
-	{
-		return Vector3(x + v.x, y + v.y, z + v.z);
-	}
-
-	Vector3 operator-(const Vector3 v) const
-	{
-		return Vector3(x - v.x, y - v.y, z - v.z);
-	}
-
-	double length()
-	{
-		return sqrt((x * x) + (y * y) + (z * z));
-	}
-};
 
 typedef struct {
 	std::vector<Vector3> v;
@@ -110,6 +88,10 @@ int main(int argc, char *argv[]) {
 		std::cout << "nlopt failed: " << e.what() << std::endl;
 	}
 	*/
+
+	FileManager* fm = FileManager::getInstance();
+	fm->LoadTrackFile("trace01_turn.csv");
+
 	nlopt::opt opt(nlopt::LN_COBYLA, 5);
 	std::vector<double> lb = { 10, 10, 10, 10, 10 };
 	std::vector<double> ub = { 30, 30, 30, 30, 30 };
