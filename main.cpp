@@ -91,6 +91,10 @@ int main(int argc, char *argv[]) {
 
 	FileManager* fm = FileManager::getInstance();
 	fm->LoadTrackFile("trace01_turn.csv");
+	fm->LoadTrackFile("trace02_turn.csv");
+	fm->LoadTrackFile("trace03_turn.csv");
+	fm->LoadTrackFile("trace04_turn.csv");
+	fm->LoadTrackFile("trace05_turn.csv");
 
 	nlopt::opt opt(nlopt::LN_COBYLA, 5);
 	std::vector<double> lb = { 10, 10, 10, 10, 10 };

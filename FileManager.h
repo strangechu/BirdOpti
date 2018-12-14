@@ -2,19 +2,22 @@
 
 #include <string>
 #include <vector>
+#include <map>
 
-typedef struct TrackData {
-	int no;
+typedef struct TrackFrameData {
 	float x;
 	float y;
 	float code;
-} TrackData;
+} TrackFrameData;
+
+typedef std::map<unsigned int, TrackFrameData> TrackData;
 
 class FileManager
 {
 private:
 	static FileManager* m_instance;
-	std::vector<TrackData> m_trackData;
+	std::map<unsigned int, TrackData>  m_trackData;
+	unsigned int boid_count;
 
 public:
 	FileManager();
@@ -27,6 +30,10 @@ public:
 			m_instance = new FileManager();
 		}
 		return m_instance;
+	}
+
+	TrackFrameData GetTrackData(unsigned int no, unsigned int frame) {
+		return m_trackData[no][frame];
 	}
 };
 
