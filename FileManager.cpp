@@ -52,7 +52,7 @@ bool FileManager::LoadTrackFile(std::string file_name) {
 			std::getline(line_stream, cell, ',');
 			data.y = std::stof(cell);
 			std::getline(line_stream, cell, ',');
-			data.code = std::stoi(cell);
+			data.code = std::stof(cell);
 
 			track_data.insert(std::pair<unsigned int, TrackFrameData>(frame, data));
 
