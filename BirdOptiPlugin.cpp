@@ -3,6 +3,8 @@
 #include <map>
 #include "Vector3.h"
 
+#include <nlopt.hpp>
+
  std::vector<float> data;
  std::vector<Vector3> ray_data;
  std::vector<float> distances;
@@ -26,6 +28,34 @@
 	 distances[boid * frame_max + frame] = value;
  }
 
+ Vector3 GetPosition(int boid, int frame) {
+	 return GetRayData(boid, frame) * GetDistance(boid, frame);
+ }
+
+ double bird_opti_func(const std::vector<double> &x, std::vector<double> &grad, void *data)
+ {
+	 //v_data *d = reinterpret_cast<v_data*>(data);
+	 //std::vector<Vector3> v = d->v;
+
+	 if (!grad.empty()) {
+		 //
+	 }
+
+	 double sum = 0;
+	 for (int i = 0; i < boid_max; i++) {
+		 for (int j = 0; j < frame_max; j++) {
+			 sum += GetPosition(i, j).length();
+		 }
+	 }
+
+	 std::vector<Vector3> p;
+	 //for (int i = 0; i < v.size(); i++) {
+	 //	 p.push_back(v[i] * x[0]);
+	 //}
+
+	 return sum;
+ }
+
 __declspec(dllexport) int __stdcall Add(int a, int b)
 {
 	return a + b;
@@ -33,6 +63,8 @@ __declspec(dllexport) int __stdcall Add(int a, int b)
 
 __declspec(dllexport) bool __stdcall LoadData(int boid_num, int frame_num, float* d)
 {
+	ray_data.clear();
+	distances.clear();
 	boid_max = boid_num;
 	frame_max = frame_num;
 	data = std::vector<float>(d, d + boid_num * frame_num * sizeof(float));
@@ -45,7 +77,7 @@ __declspec(dllexport) bool __stdcall LoadData(int boid_num, int frame_num, float
 			
 			Vector3 ray(x, y, z);
 			ray_data.push_back(ray);
-			distances.push_back(10.0f);
+			distances.push_back(20.0f);
 		}
 	}
 	return true;
@@ -53,6 +85,27 @@ __declspec(dllexport) bool __stdcall LoadData(int boid_num, int frame_num, float
 
 __declspec(dllexport) float* __stdcall OutputData(int& size, float*& return_data)
 {
+	int param_num = boid_max * frame_max;
+	//nlopt_opt opt;
+	//opt = nlopt_create(NLOPT_LN_COBYLA, param_num);
+	nlopt::opt opt(nlopt::LN_COBYLA, param_num);
+	std::vector<double> lb;
+	for (int i = 0; i < param_num; i++) lb.push_back(10);
+	std::vector<double> ub;
+	for (int i = 0; i < param_num; i++) ub.push_back(20);
+	opt.set_lower_bounds(lb);
+	opt.set_upper_bounds(ub);
+
+	opt.set_min_objective(bird_opti_func, NULL);
+	opt.set_xtol_rel(1e-4);
+
+	std::vector<double> guess;
+	for (int i = 0; i < param_num; i++) guess.push_back(15);
+	double min;
+	nlopt::result result = opt.optimize(guess, min);
+	
+	for (int i = 0; i < param_num; i++) distances[i] = guess[i];
+
 	size = 3 * boid_max * frame_max;
 	data_out = new float[size];
 	int index = 0;
