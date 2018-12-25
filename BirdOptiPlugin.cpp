@@ -8,6 +8,7 @@
  std::vector<float> data;
  std::vector<Vector3> ray_data;
  std::vector<float> distances;
+ std::vector<double> temp_distances;
  float *data_out;
  int boid_max;
  int frame_max;
@@ -24,6 +25,10 @@
 	 return distances[boid * frame_max + frame];
  }
 
+ float GetTempDistance(int boid, int frame) {
+	 return temp_distances[boid * frame_max + frame];
+ }
+
  void SetDistance(int boid, int frame, float value) {
 	 distances[boid * frame_max + frame] = value;
  }
@@ -32,8 +37,18 @@
 	 return GetRayData(boid, frame) * GetDistance(boid, frame);
  }
 
+ Vector3 GetTempPosition(int boid, int frame) {
+	 return GetRayData(boid, frame) * GetTempDistance(boid, frame);
+ }
+
+ Vector3 GetTempLastPosition(int boid, int frame) {
+	 if (frame == 0) return GetTempPosition(boid, frame);
+	 return GetTempPosition(boid, frame - 1);
+ }
+
  double bird_opti_func(const std::vector<double> &x, std::vector<double> &grad, void *data)
  {
+	 double sum = 0;
 	 //v_data *d = reinterpret_cast<v_data*>(data);
 	 //std::vector<Vector3> v = d->v;
 
@@ -41,10 +56,23 @@
 		 //
 	 }
 
-	 double sum = 0;
+	 temp_distances = x;
+	 //for (int now_frame = 0; now_frame < frame_max; now_frame++) {
+		// for (int now_boid = 0; now_boid < boid_max; now_boid++) {
+		//	 for (int i = 0; i < boid_max; i++) {
+		//		 if (i == now_boid) continue;
+		//		 double distance = (GetTempPosition(now_boid, now_frame) - GetTempPosition(i, now_frame)).length();
+		//		 sum += distance;
+		//	 }
+		// }
+	 //}
+
 	 for (int i = 0; i < boid_max; i++) {
 		 for (int j = 0; j < frame_max; j++) {
-			 sum += GetPosition(i, j).length();
+			 Vector3 pos = GetTempPosition(i, j);
+			 Vector3 last_pos = GetTempLastPosition(i, j);
+			 double length = (pos - last_pos).length();
+			 sum += length;
 		 }
 	 }
 
@@ -77,7 +105,7 @@ __declspec(dllexport) bool __stdcall LoadData(int boid_num, int frame_num, float
 			
 			Vector3 ray(x, y, z);
 			ray_data.push_back(ray);
-			distances.push_back(20.0f);
+			distances.push_back(0.0f);
 		}
 	}
 	return true;
@@ -90,9 +118,15 @@ __declspec(dllexport) float* __stdcall OutputData(int& size, float*& return_data
 	//opt = nlopt_create(NLOPT_LN_COBYLA, param_num);
 	nlopt::opt opt(nlopt::LN_COBYLA, param_num);
 	std::vector<double> lb;
-	for (int i = 0; i < param_num; i++) lb.push_back(10);
+	for (int i = 0; i < param_num; i++) {
+		if (i % frame_max == 0) lb.push_back(15 + i / frame_max);
+		else lb.push_back(10);
+	}
 	std::vector<double> ub;
-	for (int i = 0; i < param_num; i++) ub.push_back(20);
+	for (int i = 0; i < param_num; i++) {
+		if (i % frame_max == 0) ub.push_back(15 + i / frame_max);
+		else ub.push_back(20);
+	}
 	opt.set_lower_bounds(lb);
 	opt.set_upper_bounds(ub);
 
@@ -100,7 +134,10 @@ __declspec(dllexport) float* __stdcall OutputData(int& size, float*& return_data
 	opt.set_xtol_rel(1e-4);
 
 	std::vector<double> guess;
-	for (int i = 0; i < param_num; i++) guess.push_back(15);
+	for (int i = 0; i < param_num; i++) {
+		float guess_num = 20;
+		guess.push_back(guess_num);
+	}
 	double min;
 	nlopt::result result = opt.optimize(guess, min);
 	
