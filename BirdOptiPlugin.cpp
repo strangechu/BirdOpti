@@ -2,6 +2,7 @@
 #include <vector>
 #include <map>
 #include "Vector3.h"
+#include <cmath>
 
 #include <nlopt.hpp>
 
@@ -12,6 +13,9 @@
  float *data_out;
  int boid_max;
  int frame_max;
+ int current_frame;
+ float tra_weight;
+ float vel_weight;
 
  Vector3 GetRayData(int boid, int frame) {
 	 return ray_data[boid * frame_max + frame];
@@ -76,10 +80,48 @@
 		 }
 	 }
 
-	 std::vector<Vector3> p;
-	 //for (int i = 0; i < v.size(); i++) {
-	 //	 p.push_back(v[i] * x[0]);
-	 //}
+	 return sum;
+ }
+
+ double bird_step_opti_func(const std::vector<double> &x, std::vector<double> &grad, void *data)
+ {
+	 if (current_frame == 0)
+		 return 0;
+
+	 double sum = 0;
+	 temp_distances = x;
+
+	 // position near
+	 if (current_frame == 1) {
+		 for (int i = 0; i < boid_max; i++) {
+			 Vector3 pos = GetRayData(i, current_frame) * x[i];
+			 Vector3 last_pos = GetRayData(i, current_frame - 1) * GetDistance(i, current_frame - 1);
+			 double length = (pos - last_pos).length();
+			 sum += length;
+		 }
+	 }
+
+	 // trajectory smoothness
+	 if (current_frame >= 2) {
+		 for (int i = 0; i < boid_max; i++) {
+			 Vector3 pos = GetRayData(i, current_frame) * x[i];
+			 Vector3 last_pos = GetRayData(i, current_frame - 1) * GetDistance(i, current_frame - 1);
+			 Vector3 last_last_pos = GetRayData(i, current_frame - 2) * GetDistance(i, current_frame - 2);
+			 Vector3 v1 = last_pos - last_last_pos;
+			 Vector3 v2 = pos - last_pos;
+			 double angle = acos(v1.dot(v2) / (v1.length() * v2.length()));
+			 sum += angle;
+		 }
+
+		 for (int i = 0; i < boid_max; i++) {
+			 Vector3 pos = GetRayData(i, current_frame) * x[i];
+			 Vector3 last_pos = GetRayData(i, current_frame - 1) * GetDistance(i, current_frame - 1);
+			 Vector3 last_last_pos = GetRayData(i, current_frame - 2) * GetDistance(i, current_frame - 2);
+			 double len1 = (last_pos - last_last_pos).length();
+			 double len2 = (pos - last_pos).length();
+			 sum += abs(len1 - len2);
+		 }
+	 }
 
 	 return sum;
  }
@@ -108,14 +150,16 @@ __declspec(dllexport) bool __stdcall LoadData(int boid_num, int frame_num, float
 			distances.push_back(0.0f);
 		}
 	}
+
+	tra_weight = 0.5f;
+	vel_weight = 0.5f;
+
 	return true;
 }
 
-__declspec(dllexport) float* __stdcall OutputData(int& size, float*& return_data)
+__declspec(dllexport) int __stdcall GlobalOptimize(int& size, float*& return_data)
 {
 	int param_num = boid_max * frame_max;
-	//nlopt_opt opt;
-	//opt = nlopt_create(NLOPT_LN_COBYLA, param_num);
 	nlopt::opt opt(nlopt::LN_COBYLA, param_num);
 	std::vector<double> lb;
 	for (int i = 0; i < param_num; i++) {
@@ -155,8 +199,58 @@ __declspec(dllexport) float* __stdcall OutputData(int& size, float*& return_data
 	}
 
 	return_data = data_out;
+	return result;
+}
 
-	return data_out;
+__declspec(dllexport) int __stdcall StepOptimize(int& size, float*& return_data)
+{
+	int param_num = boid_max * frame_max;
+
+	for (int frame = 0; frame < frame_max; frame++) {
+		current_frame = frame;
+		nlopt::opt opt(nlopt::LN_COBYLA, boid_max);
+		std::vector<double> lb;
+		for (int i = 0; i < boid_max; i++) {
+			if (frame == 0) lb.push_back(15 + i);
+			else lb.push_back(10);
+		}
+		std::vector<double> ub;
+		for (int i = 0; i < boid_max; i++) {
+			if (frame == 0) ub.push_back(15 + i);
+			else ub.push_back(20);
+		}
+		opt.set_lower_bounds(lb);
+		opt.set_upper_bounds(ub);
+
+		opt.set_min_objective(bird_step_opti_func, NULL);
+		opt.set_xtol_rel(1e-4);
+
+		std::vector<double> guess;
+		for (int i = 0; i < boid_max; i++) {
+			float guess_num = 20;
+			guess.push_back(guess_num);
+		}
+		double min;
+		nlopt::result result = opt.optimize(guess, min);
+
+		for (int i = 0; i < boid_max; i++) {
+			SetDistance(i, frame, guess[i]);
+		}
+	}
+
+	size = 3 * boid_max * frame_max;
+	data_out = new float[size];
+	int index = 0;
+	for (int i = 0; i < boid_max; i++) {
+		for (int j = 0; j < frame_max; j++) {
+			data_out[index++] = GetRayData(i, j).x * GetDistance(i, j);
+			data_out[index++] = GetRayData(i, j).y * GetDistance(i, j);
+			data_out[index++] = GetRayData(i, j).z * GetDistance(i, j);
+		}
+	}
+
+	return_data = data_out;
+	return 1;
 }
 
 __declspec(dllexport) void __stdcall ReleaseAll()

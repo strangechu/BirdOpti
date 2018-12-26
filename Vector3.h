@@ -9,6 +9,11 @@ struct Vector3 {
 		return Vector3(this->x * f, this->y * f, this->z * f);
 	}
 
+	Vector3 operator/(const double f) const
+	{
+		return Vector3(this->x / f, this->y / f, this->z / f);
+	}
+
 	Vector3 operator+(const Vector3 v) const
 	{
 		return Vector3(x + v.x, y + v.y, z + v.z);
@@ -22,5 +27,16 @@ struct Vector3 {
 	double length()
 	{
 		return sqrt((x * x) + (y * y) + (z * z));
+	}
+
+	Vector3 normalize()
+	{
+		double length = this->length();
+		return Vector3(x / length, y / length, z / length);
+	}
+
+	double dot(const Vector3 v) const
+	{
+		return x * v.x + y * v.y + z * v.z;
 	}
 };
