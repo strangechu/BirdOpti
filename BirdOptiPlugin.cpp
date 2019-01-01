@@ -7,6 +7,7 @@
 #include <nlopt.hpp>
 
  std::vector<float> data;
+ std::vector<float> param_data;
  std::vector<Vector3> ray_data;
  std::vector<float> distances;
  std::vector<double> temp_distances;
@@ -97,7 +98,9 @@
 			 Vector3 pos = GetRayData(i, current_frame) * x[i];
 			 Vector3 last_pos = GetRayData(i, current_frame - 1) * GetDistance(i, current_frame - 1);
 			 double length = (pos - last_pos).length();
-			 sum += length;
+			 double value = abs(param_data[0] - length);
+
+			 sum += value;
 		 }
 	 }
 
@@ -110,17 +113,23 @@
 			 Vector3 v1 = last_pos - last_last_pos;
 			 Vector3 v2 = pos - last_pos;
 			 double angle = acos(v1.dot(v2) / (v1.length() * v2.length()));
-			 sum += angle;
+
+			 sum += angle * param_data[1];
+
+			 double length = (pos - last_pos).length();
+			 double value = abs(param_data[0] - length);
+
+			 sum += value * param_data[2];
 		 }
 
-		 for (int i = 0; i < boid_max; i++) {
-			 Vector3 pos = GetRayData(i, current_frame) * x[i];
-			 Vector3 last_pos = GetRayData(i, current_frame - 1) * GetDistance(i, current_frame - 1);
-			 Vector3 last_last_pos = GetRayData(i, current_frame - 2) * GetDistance(i, current_frame - 2);
-			 double len1 = (last_pos - last_last_pos).length();
-			 double len2 = (pos - last_pos).length();
-			 sum += abs(len1 - len2);
-		 }
+		// for (int i = 0; i < boid_max; i++) {
+		//	 Vector3 pos = GetRayData(i, current_frame) * x[i];
+		//	 Vector3 last_pos = GetRayData(i, current_frame - 1) * GetDistance(i, current_frame - 1);
+		//	 Vector3 last_last_pos = GetRayData(i, current_frame - 2) * GetDistance(i, current_frame - 2);
+		//	 double len1 = (last_pos - last_last_pos).length();
+		//	 double len2 = (pos - last_pos).length();
+		//	 sum += abs(len1 - len2);
+		// }
 	 }
 
 	 return sum;
@@ -202,8 +211,10 @@ __declspec(dllexport) int __stdcall GlobalOptimize(int& size, float*& return_dat
 	return result;
 }
 
-__declspec(dllexport) int __stdcall StepOptimize(int& size, float*& return_data)
+__declspec(dllexport) int __stdcall StepOptimize(int& size, float*& return_data, float min, float max, float* param)
 {
+	param_data = std::vector<float>(param, param + 5 * sizeof(float));
+
 	int param_num = boid_max * frame_max;
 
 	for (int frame = 0; frame < frame_max; frame++) {
@@ -211,13 +222,13 @@ __declspec(dllexport) int __stdcall StepOptimize(int& size, float*& return_data)
 		nlopt::opt opt(nlopt::LN_COBYLA, boid_max);
 		std::vector<double> lb;
 		for (int i = 0; i < boid_max; i++) {
-			if (frame == 0) lb.push_back(15 + i);
-			else lb.push_back(10);
+			if (frame == 0) lb.push_back((min + max) / 2 + i);
+			else lb.push_back(min);
 		}
 		std::vector<double> ub;
 		for (int i = 0; i < boid_max; i++) {
-			if (frame == 0) ub.push_back(15 + i);
-			else ub.push_back(20);
+			if (frame == 0) ub.push_back((min + max) / 2 + i);
+			else ub.push_back(max);
 		}
 		opt.set_lower_bounds(lb);
 		opt.set_upper_bounds(ub);
@@ -231,7 +242,13 @@ __declspec(dllexport) int __stdcall StepOptimize(int& size, float*& return_data)
 			guess.push_back(guess_num);
 		}
 		double min;
-		nlopt::result result = opt.optimize(guess, min);
+
+		try {
+			nlopt::result result = opt.optimize(guess, min);
+		}
+		catch (std::exception &e) {
+			e.what();
+		}
 
 		for (int i = 0; i < boid_max; i++) {
 			SetDistance(i, frame, guess[i]);
