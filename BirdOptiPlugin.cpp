@@ -118,7 +118,9 @@
 			 if (cos_theta > 1 || cos_theta < -1)
 				 angle = 0.0;
 
-			 sum += angle * param_data[1];
+			 //sum += angle * param_data[1];
+
+			 sum += abs(last_step_v.length() - step_v.length()) * param_data[1];
 
 			 float step_length = (pos - last_pos).length();
 			 float step_speed_diff = (last_step_v - step_v).length();
