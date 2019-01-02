@@ -110,16 +110,20 @@
 			 Vector3 pos = GetRayData(i, current_frame) * x[i];
 			 Vector3 last_pos = GetRayData(i, current_frame - 1) * GetDistance(i, current_frame - 1);
 			 Vector3 last_last_pos = GetRayData(i, current_frame - 2) * GetDistance(i, current_frame - 2);
-			 Vector3 v1 = last_pos - last_last_pos;
-			 Vector3 v2 = pos - last_pos;
-			 double angle = acos(v1.dot(v2) / (v1.length() * v2.length()));
+			 Vector3 last_step_v = last_pos - last_last_pos;
+			 Vector3 step_v = pos - last_pos;
+			 double cos_theta = last_step_v.dot(step_v) / (last_step_v.length() * step_v.length());
+			 double angle = acos(cos_theta);
+
+			 if (cos_theta > 1 || cos_theta < -1)
+				 angle = 0.0;
 
 			 sum += angle * param_data[1];
 
-			 double length = (pos - last_pos).length();
-			 double value = abs(param_data[0] - length);
+			 float step_length = (pos - last_pos).length();
+			 float step_speed_diff = (last_step_v - step_v).length();
 
-			 sum += value * param_data[2];
+			 sum += step_speed_diff * param_data[2];
 		 }
 
 		// for (int i = 0; i < boid_max; i++) {
@@ -146,7 +150,7 @@ __declspec(dllexport) bool __stdcall LoadData(int boid_num, int frame_num, float
 	distances.clear();
 	boid_max = boid_num;
 	frame_max = frame_num;
-	data = std::vector<float>(d, d + boid_num * frame_num * sizeof(float));
+	data = std::vector<float>(d, d + boid_num * frame_num);
 	int index = 0;
 	for (int i = 0; i < boid_max; i++) {
 		for (int j = 0; j < frame_max; j++) {
@@ -213,9 +217,11 @@ __declspec(dllexport) int __stdcall GlobalOptimize(int& size, float*& return_dat
 
 __declspec(dllexport) int __stdcall StepOptimize(int& size, float*& return_data, float min, float max, float* param)
 {
-	param_data = std::vector<float>(param, param + 5 * sizeof(float));
+	param_data = std::vector<float>(param, param + 5);
 
 	int param_num = boid_max * frame_max;
+
+	int return_result = 1;
 
 	for (int frame = 0; frame < frame_max; frame++) {
 		current_frame = frame;
@@ -248,6 +254,8 @@ __declspec(dllexport) int __stdcall StepOptimize(int& size, float*& return_data,
 		}
 		catch (std::exception &e) {
 			e.what();
+			return_result = -1;
+			break;
 		}
 
 		for (int i = 0; i < boid_max; i++) {
@@ -267,7 +275,7 @@ __declspec(dllexport) int __stdcall StepOptimize(int& size, float*& return_data,
 	}
 
 	return_data = data_out;
-	return 1;
+	return return_result;
 }
 
 __declspec(dllexport) void __stdcall ReleaseAll()
