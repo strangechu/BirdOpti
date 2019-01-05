@@ -15,8 +15,6 @@
  int boid_max;
  int frame_max;
  int current_frame;
- float tra_weight;
- float vel_weight;
 
  Vector3 GetRayData(int boid, int frame) {
 	 return ray_data[boid * frame_max + frame];
@@ -126,7 +124,34 @@
 			 float step_speed_diff = (last_step_v - step_v).length();
 
 			 sum += step_speed_diff * param_data[2];
+
+			 // boid rule similarity
+			 Vector3 separate = Vector3 (0.0f, 0.0f, 0.0f);
+			 int separate_num = 0;
+			 for (int j = 0; j < boid_max; j++) {
+				 if(i == j) {
+					 continue;
+				 }
+				 
+				 Vector3 other_pos = GetRayData(j, current_frame) * x[j];
+				 Vector3 diff = pos - other_pos;
+				 float distance = diff.length();
+				 if (distance < param_data[3]) {
+					 Vector3 force = diff.normalize() / distance;
+					 separate = separate + force;
+					 separate_num++;
+				 }
+			 }
+			 if (separate_num > 0) {
+				 separate = separate / separate_num;
+			 }
+			 Vector3 separate_pos = last_pos + separate;
+			 float separate_diff = (pos - separate_pos).length();
+
+			 sum += separate_diff * param_data[4];
 		 }
+
+		 
 
 		// for (int i = 0; i < boid_max; i++) {
 		//	 Vector3 pos = GetRayData(i, current_frame) * x[i];
@@ -165,9 +190,6 @@ __declspec(dllexport) bool __stdcall LoadData(int boid_num, int frame_num, float
 			distances.push_back(0.0f);
 		}
 	}
-
-	tra_weight = 0.5f;
-	vel_weight = 0.5f;
 
 	return true;
 }
