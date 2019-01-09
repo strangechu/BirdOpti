@@ -118,16 +118,18 @@
 
 			 //sum += angle * param_data[1];
 
-			 sum += abs(last_step_v.length() - step_v.length()) * param_data[1];
+			 //sum += abs(last_step_v.length() - step_v.length()) * param_data[1];
 
 			 float step_length = (pos - last_pos).length();
 			 float step_speed_diff = (last_step_v - step_v).length();
 
-			 sum += step_speed_diff * param_data[2];
+			 sum += step_speed_diff * param_data[1];
 
 			 // boid rule similarity
 			 Vector3 separate = Vector3 (0.0f, 0.0f, 0.0f);
+			 Vector3 coherence = Vector3 (0.0f, 0.0f, 0.0f);
 			 int separate_num = 0;
+			 int coherence_num = 0;
 			 for (int j = 0; j < boid_max; j++) {
 				 if(i == j) {
 					 continue;
@@ -141,14 +143,19 @@
 					 separate = separate + force;
 					 separate_num++;
 				 }
+				 coherence = coherence + other_pos;
+				 coherence_num++;
 			 }
 			 if (separate_num > 0) {
 				 separate = separate / separate_num;
 			 }
-			 Vector3 separate_pos = last_pos + separate;
-			 float separate_diff = (pos - separate_pos).length();
+			 if (coherence_num > 0) {
+				 coherence = coherence / coherence_num;
+			 }
+			 Vector3 boid_pos = last_pos + (separate * (param_data[4]) + coherence * (1 - param_data[4]));
+			 float boid_diff = (pos - boid_pos).length();
 
-			 sum += separate_diff * param_data[4];
+			 sum += boid_diff * param_data[2];
 		 }
 
 		 
