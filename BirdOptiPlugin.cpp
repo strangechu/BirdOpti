@@ -11,6 +11,7 @@
  std::vector<Vector3> ray_data;
  std::vector<float> distances;
  std::vector<double> temp_distances;
+ std::vector<double> last_guess;
  float *data_out;
  int boid_max;
  int frame_max;
@@ -135,22 +136,24 @@
 					 continue;
 				 }
 				 
-				 Vector3 other_pos = GetRayData(j, current_frame) * x[j];
-				 Vector3 diff = pos - other_pos;
+				 Vector3 other_pos = GetRayData(j, current_frame - 1) * x[j];
+				 Vector3 diff = last_pos - other_pos;
 				 float distance = diff.length();
 				 if (distance < param_data[3]) {
 					 Vector3 force = diff.normalize() / distance;
 					 separate = separate + force;
 					 separate_num++;
 				 }
-				 coherence = coherence + other_pos;
+				 coherence = coherence + (other_pos - last_pos);
 				 coherence_num++;
 			 }
 			 if (separate_num > 0) {
 				 separate = separate / separate_num;
+				 separate = separate.normalize();
 			 }
 			 if (coherence_num > 0) {
 				 coherence = coherence / coherence_num;
+				 coherence = coherence.normalize();
 			 }
 			 Vector3 boid_pos = last_pos + (separate * (param_data[4]) + coherence * (1 - param_data[4]));
 			 float boid_diff = (pos - boid_pos).length();
@@ -258,14 +261,19 @@ __declspec(dllexport) int __stdcall StepOptimize(int& size, float*& return_data,
 		current_frame = frame;
 		nlopt::opt opt(nlopt::LN_COBYLA, boid_max);
 		std::vector<double> lb;
-		for (int i = 0; i < boid_max; i++) {
-			if (frame == 0) lb.push_back((min + max) / 2 + i);
-			else lb.push_back(min);
-		}
 		std::vector<double> ub;
-		for (int i = 0; i < boid_max; i++) {
-			if (frame == 0) ub.push_back((min + max) / 2 + i);
-			else ub.push_back(max);
+		if (frame == 0) {
+			for (int i = 0; i < boid_max; i++) {
+				double start_pos = (min + max) / 2 + i;
+				lb.push_back(start_pos);
+				ub.push_back(start_pos);
+			}
+		}
+		else {
+			for (int i = 0; i < boid_max; i++) {
+				lb.push_back(last_guess[i] - param_data[0]);
+				ub.push_back(last_guess[i] + param_data[0]);
+			}
 		}
 		opt.set_lower_bounds(lb);
 		opt.set_upper_bounds(ub);
@@ -274,16 +282,23 @@ __declspec(dllexport) int __stdcall StepOptimize(int& size, float*& return_data,
 		opt.set_xtol_rel(1e-4);
 
 		std::vector<double> guess;
-		for (int i = 0; i < boid_max; i++) {
-			float guess_num = 20;
-			guess.push_back(guess_num);
+		if (frame == 0) {
+			for (int i = 0; i < boid_max; i++) {
+				float guess_num = 20;
+				guess.push_back(guess_num);
+			}
+		}
+		else {
+			guess = last_guess;
 		}
 		double min;
 
 		try {
 			nlopt::result result = opt.optimize(guess, min);
+			last_guess = guess;
 		}
 		catch (std::exception &e) {
+			last_guess = guess;
 			e.what();
 			return_result = -1;
 			break;
